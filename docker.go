@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	// ErrNotImplemented indicates this method is not implemented yet
 	ErrNotImplemented = errors.New("not implemented")
 )
 
@@ -39,12 +40,10 @@ func (e dockerEnvironment) Exec(ctx context.Context, cmd string, args ...string)
 		cmdArgs := append([]string{}, "run", "-it", "--rm", e.identifier, cmd)
 		cmdArgs = append(cmdArgs, args...)
 		return exec.CommandContext(ctx, "docker", cmdArgs...)
-	} else {
-		cmdArgs := append([]string{}, "exec", e.identifier, cmd)
-		cmdArgs = append(cmdArgs, args...)
-		return exec.CommandContext(ctx, "docker", cmdArgs...)
 	}
-	return exec.CommandContext(ctx, cmd, args...)
+	cmdArgs := append([]string{}, "exec", e.identifier, cmd)
+	cmdArgs = append(cmdArgs, args...)
+	return exec.CommandContext(ctx, "docker", cmdArgs...)
 }
 
 func (e dockerEnvironment) Open(file string) {
