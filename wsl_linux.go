@@ -1,6 +1,6 @@
 // +build linux
 
-package isisolated
+package alicein
 
 import (
 	"context"
@@ -17,148 +17,141 @@ var isInWSL bool
 // IsInWSL returns current environment is in WSL or not
 func IsInWSL() bool {
 	checkWSL.Do(func() {
-		_, err := os.Stat("/usr/bin/wslpath")
+		_, err := os.Stat("/run/WSL")
 		isInWSL = err == nil
 	})
 	return isInWSL
 }
 
-// ConvertToHostPath returns host style path if current env is in WSL.
-// Otherwise, return input path as is.
-func ConvertToHostPath(path string) string {
+// IsWSLInstalled returns current environment has WSL guest/host
+func IsWSLInstalled() bool {
+	return IsInWSL()
+}
+
+// WSLGuest returns environment to access Guest(Linux) environment
+func WSLGuest() Environment {
+	return &nonVirtualEnvironment{}
+}
+
+// WSLHost returns environment to access Host(Windows) environment
+func WSLHost() Environment {
 	if IsInWSL() {
-		cmd := exec.Command("wslpath", "-w", path)
-		result, err := cmd.Output()
-		if err != nil {
-			return path
-		}
-		return strings.TrimSpace(string(result))
+		return &wslHostEnvironment{}
 	}
-	return path
+	return &nonVirtualEnvironment{}
 }
 
-// ConvertToHostPath returns guest style path.
-// Otherwise, return input path as is.
-func ConvertToGuestPath(path string) string {
-	if IsInWSL() {
-		cmd := exec.Command("wslpath", "-u", path)
-		result, err := cmd.Output()
-		if err != nil {
-			return path
-		}
-		return strings.TrimSpace(string(result))
-	}
-	return path
+type wslHostEnvironment struct {
 }
 
-func ExecInGuestEnv(ctx context.Context, command string, args ...string) *exec.Cmd {
-	return exec.CommandContext(ctx, command, args...)
-}
+var _ Environment = &nonVirtualEnvironment{}
 
-func ExecInHostEnv(ctx context.Context, command string, args ...string) *exec.Cmd {
-	if IsInWSL() {
-		exts := []string{"", ".com", ".exe", ".bat", ".cmd", ".lnk"}
-		for _, ext := range exts {
-			_, err := exec.LookPath(command + ext)
-			if err == nil {
-				command = command + ext
-				break
-			}
+func (e wslHostEnvironment) Exec(ctx context.Context, cmd string, args ...string) *exec.Cmd {
+	pathExt, ok := e.Environ()["PATHEXT"]
+	exts := []string{"", ".com", ".exe", ".bat", ".cmd", ".lnk"}
+	if ok {
+		exts = []string{}
+		for _, ext := range strings.Split(pathExt, ";") {
+			exts = append(exts, strings.TrimSpace(ext))
 		}
 	}
-	return exec.CommandContext(ctx, command, args...)
-}
-
-func UserCacheDirInGuest() (string, error) {
-	return os.UserCacheDir()
-}
-
-func UserCacheDirInHost() (string, error) {
-	if IsInWSL() {
-		envs := EnvironInHost()
-		cache, ok := envs["LOCALAPPDATA"]
-		if ok {
-			return cache, nil
+	for _, ext := range exts {
+		// todo: reimplement exec.LookPath to overwrite
+		// PATH environment variable by using host's PATH
+		_, err := exec.LookPath(cmd + ext)
+		if err == nil {
+			cmd = cmd + ext
+			break
 		}
-		return "", errors.New("not found")
 	}
-	return os.UserCacheDir()
+	return exec.CommandContext(ctx, cmd, args...)
 }
 
-func UserConfigDirInGuest() (string, error) {
-	if IsInWSL() {
-		envs := EnvironInHost()
-		cache, ok := envs["APPDATA"]
-		if ok {
-			return cache, nil
-		}
-		return "", errors.New("not found")
-	}
-	return os.UserCacheDir()
+func (e wslHostEnvironment) Open(input string) {
+	// wslview is better because cmd.exe /C set specify
+	// static location of windows. but wsvar reset terminal
+	// unexpectedly
+	convertedPath := ConvertToHostPath(input)
+	cmd := exec.Command("/mnt/C/Windows/System32/cmd.exe", "/C", "start", convertedPath)
+	cmd.Run()
 }
 
-func UserConfigDirInHost() (string, error) {
-	if IsInWSL() {
-		envs := EnvironInHost()
-		cache, ok := envs["APPDATA"]
-		if ok {
-			return cache, nil
-		}
-		return "", errors.New("not found")
+func (e wslHostEnvironment) UserHomeDir() (string, error) {
+	envs := e.Environ()
+	home, ok := envs["USERPROFILE"]
+	if ok {
+		return home, nil
 	}
-	return os.UserConfigDir()
+	home, ok = envs["HOMEPATH"]
+	if ok {
+		return home, nil
+	}
+	return "", errors.New("not found")
 }
 
-func UserHomeDirInGuest() (string, error) {
-	return os.UserHomeDir()
+func (e wslHostEnvironment) UserConfigDir() (string, error) {
+	envs := e.Environ()
+	cache, ok := envs["APPDATA"]
+	if ok {
+		return cache, nil
+	}
+	return "", errors.New("not found")
 }
 
-func UserHomeDirInHost() (string, error) {
-	if IsInWSL() {
-		envs := EnvironInHost()
-		home, ok := envs["USERPROFILE"]
-		if ok {
-			return home, nil
-		}
-		home, ok = envs["HOMEPATH"]
-		if ok {
-			return home, nil
-		}
-		return "", errors.New("not found")
+func (e wslHostEnvironment) UserCacheDir() (string, error) {
+	envs := e.Environ()
+	cache, ok := envs["LOCALAPPDATA"]
+	if ok {
+		return cache, nil
 	}
-	return os.UserHomeDir()
-}
-
-func EnvironInGuest() map[string]string {
-	envs := os.Environ()
-	result := make(map[string]string, len(envs))
-	for _, l := range envs {
-		f := strings.SplitN(l, "=", 2)
-		result[f[0]] = f[1]
-	}
-	return result
+	return "", errors.New("not found")
 }
 
 var cachedHostEnv map[string]string
 var checkEnvOnce sync.Once
 
-func EnvironInHost() map[string]string {
-	if IsInWSL() {
-		checkEnvOnce.Do(func() {
-			cachedHostEnv = make(map[string]string)
-			cmd := exec.Command("wslvar", "--getsys")
-			vars, err := cmd.Output()
-			if err != nil {
-				return
+func (e wslHostEnvironment) Environ() map[string]string {
+	checkEnvOnce.Do(func() {
+		cachedHostEnv = make(map[string]string)
+		// wslvar is better because cmd.exe /C set specify
+		// static location of windows. but wsvar reset terminal
+		// unexpectedly
+		//cmd := exec.Command("wslvar", "--getsys")
+		cmd := exec.Command("/mnt/c/Windows/System32/cmd.exe", "/C", "set")
+		vars, err := cmd.Output()
+		if err != nil {
+			return
+		}
+		for _, vr := range strings.Split(string(vars), "\n") {
+			f := strings.SplitN(vr, "=", 2)
+			if len(f) == 2 {
+				cachedHostEnv[f[0]] = strings.TrimSpace(f[1])
 			}
-			for _, vr := range strings.Split(string(vars), "\n")[2:] {
-				f := strings.SplitN(vr, " ", 2)
-				if len(f) == 2 {
-					cachedHostEnv[strings.TrimSpace(f[0])] = strings.TrimSpace(f[1])
-				}
-			}
-		})
-		return cachedHostEnv
+		}
+	})
+	return cachedHostEnv
+}
+
+// ConvertToHostPath returns host style path if current env is in WSL.
+// Otherwise, return input path as is.
+// Docker doesn't support this.
+func ConvertToHostPath(path string) string {
+	cmd := exec.Command("wslpath", "-w", path)
+	result, err := cmd.Output()
+	if err != nil {
+		return path
 	}
-	return EnvironInGuest()
+	return strings.TrimSpace(string(result))
+}
+
+// ConvertToGuestPath returns guest style path.
+// Otherwise, return input path as is.
+// Docker doesn't support this.
+func ConvertToGuestPath(path string) string {
+	cmd := exec.Command("wslpath", path)
+	result, err := cmd.Output()
+	if err != nil {
+		return path
+	}
+	return strings.TrimSpace(string(result))
 }
