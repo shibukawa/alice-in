@@ -4,6 +4,7 @@ package alicein
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"strings"
@@ -58,15 +59,37 @@ func (e wslGuestEnvironment) Open(input string) {
 }
 
 func (e wslGuestEnvironment) UserHomeDir() (string, error) {
-	return os.UserHomeDir()
+	envs := e.Environ()
+	if v, ok := envs["HOME"]; ok {
+		return v, nil
+	}
+	return "", errors.New("$HOME is not defined")
 }
 
 func (e wslGuestEnvironment) UserConfigDir() (string, error) {
-	return os.UserConfigDir()
+	envs := e.Environ()
+	dir, ok := envs["XDG_CONFIG_HOME"]
+	if ok {
+		return dir, nil
+	}
+	dir, ok = envs["HOME"]
+	if !ok {
+		return "", errors.New("neither $XDG_CONFIG_HOME nor $HOME are defined")
+	}
+	return dir + "/.config", nil
 }
 
 func (e wslGuestEnvironment) UserCacheDir() (string, error) {
-	return os.UserCacheDir()
+	envs := e.Environ()
+	dir, ok := envs["XDG_CACHE_HOME"]
+	if ok {
+		return dir, nil
+	}
+	dir, ok = envs["HOME"]
+	if !ok {
+		return "", errors.New("neither $XDG_CACHE_HOME nor $HOME are defined")
+	}
+	return dir + "/.cache", nil
 }
 
 var cachedGuestEnv map[string]string
@@ -78,7 +101,7 @@ func (e wslGuestEnvironment) Environ() map[string]string {
 		// static location of windows. but wsvar reset terminal
 		// unexpectedly
 		//cmd := exec.Command("wslvar", "--getsys")
-		cmd := exec.Command("wsl", "/mnt/c/Windows/System32/cmd.exe")
+		cmd := exec.Command("wsl", "env")
 		envs, err := cmd.Output()
 		if err != nil {
 			return
@@ -87,7 +110,9 @@ func (e wslGuestEnvironment) Environ() map[string]string {
 		cachedGuestEnv = make(map[string]string, len(envStrs))
 		for _, l := range envStrs {
 			f := strings.SplitN(l, "=", 2)
-			cachedGuestEnv[f[0]] = f[1]
+			if len(f) == 2 {
+				cachedGuestEnv[f[0]] = strings.TrimSpace(f[1])
+			}
 		}
 	})
 	return cachedGuestEnv
