@@ -102,3 +102,9 @@ Path conversion between 🐧 ⇔ 田
 ## License
 
 Apache 2
+
+## Contributors
+
+* [@aodag](https://github.com/aodag): Cool name
+* [@mopemope](https://github.com/mopemope)
+* [@shirou](https://github.com/shirou)
