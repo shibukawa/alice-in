@@ -69,10 +69,10 @@ func (e dockerEnvironment) Type() EnvType {
 	return DockerEnv
 }
 
-// Docker returns Docker environment.
+// DockerEnvironment returns Docker environment.
 //
 // This environment only support Exec
-func Docker(target string) Environment {
+func DockerEnvironment(target string) Environment {
 	return &dockerEnvironment{
 		isImage:    strings.HasPrefix(target, "image:"),
 		identifier: strings.TrimPrefix(target, "image:"),

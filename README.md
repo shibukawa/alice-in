@@ -1,5 +1,7 @@
 # alice-in -- Alice in VIRTUAL Land
 
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/shibukawa/alice-in)](https://pkg.go.dev/github.com/shibukawa/alice-in)
+
 This library is for treating virtual environment. This library can handle the following environments:
 
 * WSL2
@@ -35,9 +37,11 @@ Docker doesn't support this.
 
 ## Get Environment
 
-* `alicein.WSLGuest() Environment`: On Windows and WSL is installed, it returns interface to handle WSL. Otherwise, it returns native environment.
-* `alicein.WSLHost() Environment`: On Linux in WSL, it returns interface to handle Host Windows. Otherwise, it returns native environment.
-* `alicein.Docker(target) Environment`: Detect current environment is in Docker. If target prefixed "image:", it means image name. Otherwise, it means running container name.
+* `alicein.NativeEnvironment() Environment`: It is as same as using os package directly
+* `alicein.WSLGuestEnvironment() Environment`: On Windows and WSL is installed, it returns interface to handle WSL. Otherwise, it returns native environment.
+* `alicein.WSLHostEnvironment() Environment`: On Linux in WSL, it returns interface to handle Host Windows. Otherwise, it returns native environment.
+* `alicein.DetectedEnvironment() Environment`: It returns one of Naitve/WSLHost/WSLGuest environment based on parent process.
+* `alicein.DockerEnvironment(target) Environment`: Detect current environment is in Docker. If target prefixed "image:", it means image name. Otherwise, it means running container name.
 
 ## Environment
 
