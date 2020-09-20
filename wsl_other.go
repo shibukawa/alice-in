@@ -12,13 +12,25 @@ func IsWSLInstalled() bool {
 	return false
 }
 
-// WSLGuest returns environment to access Host(Windows) environment
-func WSLGuest() Environment {
+// WSLGuestEnvironemnt returns environment to access Host(Windows) environment
+func WSLGuestEnvironemnt() Environment {
 	return &nonVirtualEnvironment{}
 }
 
-// WSLHost returns environment to access Host(Windows) environment
-func WSLHost() Environment {
+// WSLHostEnvironemnt returns environment to access Host(Windows) environment
+func WSLHostEnvironemnt() Environment {
+	return &nonVirtualEnvironment{}
+}
+
+// DetectEnvType returns detected parent environment type
+//
+// This function check's parent process and return result
+func DetectEnvType() EnvType {
+	return NativeEnv
+}
+
+// DetectedEnvironment returns environment of parent
+func DetectedEnvironment() Environment {
 	return &nonVirtualEnvironment{}
 }
 

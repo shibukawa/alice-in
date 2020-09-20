@@ -5,6 +5,32 @@ import (
 	"os/exec"
 )
 
+// EnvType is type of environment. DetectEnv() returns this
+type EnvType int
+
+const (
+	// NativeEnv means current env equals to GOOS
+	NativeEnv EnvType = iota + 1
+	// WSLEnv means WSL guest environment
+	WSLEnv
+	// HostEnv means Host Windows environemnt
+	HostEnv
+	// DockerEnv means Docker environemnt
+	DockerEnv
+)
+
+func (e EnvType) String() string {
+	switch e {
+	case NativeEnv:
+		return "native"
+	case WSLEnv:
+		return "wsl"
+	case HostEnv:
+		return "host"
+	}
+	return "(unknown)"
+}
+
 // Environment is an interface that returns information or exec commands
 type Environment interface {
 	// Exec execs commands in current environment.
@@ -32,4 +58,7 @@ type Environment interface {
 	// Environ returns environment variables in virtual environment.
 	// Otherwise it returns os.Environment
 	Environ() map[string]string
+
+	// Type returns current environment type
+	Type() EnvType
 }

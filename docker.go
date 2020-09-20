@@ -65,6 +65,10 @@ func (e dockerEnvironment) Environ() map[string]string {
 	return nil
 }
 
+func (e dockerEnvironment) Type() EnvType {
+	return DockerEnv
+}
+
 // Docker returns Docker environment.
 //
 // This environment only support Exec

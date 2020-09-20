@@ -7,8 +7,11 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/shirou/gopsutil/process"
 )
 
 // IsInWSL returns current environment is in WSL or not
@@ -29,17 +32,17 @@ func IsWSLInstalled() bool {
 	return isInWSLInstalled
 }
 
-// WSLGuest returns environment to access Guest(Linux) environment
+// WSLGuestEnvironment returns environment to access Guest(Linux) environment
 // If WSL is not installed, it returns host environment
-func WSLGuest() Environment {
+func WSLGuestEnvironment() Environment {
 	if IsWSLInstalled() {
 		return &wslGuestEnvironment{}
 	}
 	return &nonVirtualEnvironment{}
 }
 
-// WSLHost returns environment to access Host(Windows) environment
-func WSLHost() Environment {
+// WSLHostEnvironment returns environment to access Host(Windows) environment
+func WSLHostEnvironment() Environment {
 	return &nonVirtualEnvironment{}
 }
 
@@ -116,6 +119,39 @@ func (e wslGuestEnvironment) Environ() map[string]string {
 		}
 	})
 	return cachedGuestEnv
+}
+
+func (e wslGuestEnvironment) Type() EnvType {
+	return WSLEnv
+}
+
+// DetectEnvType returns detected parent environment type
+//
+// This function check's parent process and return result
+func DetectEnvType() (EnvType, error) {
+	p, err := process.NewProcess(int32(os.Getppid()))
+	if err != nil {
+		return 0, err
+	}
+	c, err := p.CmdlineSlice()
+	if err != nil {
+		return 0, err
+	}
+	if filepath.Base(c[0]) == "wsl.exe" {
+		return WSLEnv, nil
+	}
+	return NativeEnv, nil
+}
+
+// DetectedEnvironment returns environment of parent
+//
+// On Windows, it returns native or WSL environment based on parent's process
+func DetectedEnvironment() Environment {
+	env, _ := DetectEnvType()
+	if env == WSLEnv {
+		return WSLGuestEnvironment()
+	}
+	return NativeEnvironment()
 }
 
 // ConvertToHostPath returns host style path if current env is in WSL.

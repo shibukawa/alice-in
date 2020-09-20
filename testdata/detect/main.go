@@ -33,8 +33,8 @@ func main() {
 	fmt.Printf("🐋 alicein.IsInDocker(): %v\n", alicein.IsInDocker())
 	fmt.Printf("%s aliciein.IsInWSL(): %v\n", hi, alicein.IsInWSL())
 
-	fmt.Printf("%s WSL Guest: alicein.WSLGuest()\n", gi)
-	guest := alicein.WSLGuest()
+	fmt.Printf("%s WSL Guest: alicein.WSLGuestEnvironment()\n", gi)
+	guest := alicein.WSLGuestEnvironment()
 
 	homePath, _ := guest.UserHomeDir()
 	fmt.Printf("   %sUserHomeDir(): %s\n", gi, homePath)
@@ -49,8 +49,8 @@ func main() {
 		fmt.Printf("      result = '%s', err = %v\n", string(res), err)
 	}
 
-	fmt.Printf("\n%s WSL Host: alicein.WSLHost()\n", hi)
-	host := alicein.WSLHost()
+	fmt.Printf("\n%s WSL Host: alicein.WSLHostEnvironment()\n", hi)
+	host := alicein.WSLHostEnvironment()
 
 	homePath, _ = host.UserHomeDir()
 	fmt.Printf("   %sUserHomeDir(): %s\n", hi, homePath)
@@ -63,6 +63,13 @@ func main() {
 		cmd := host.Exec(context.Background(), "date")
 		res, err := cmd.Output()
 		fmt.Printf("      result = '%s', err = %v\n", string(res), err)
+	}
+
+	e, err := alicein.DetectEnvType()
+	if err == nil {
+		fmt.Printf("Auto detected environment: %s\n", e)
+	} else {
+		fmt.Printf("Auto detected environment error: %v\n", err)
 	}
 
 	fmt.Println("\nPath conversion between 🐧 ⇔ 田")

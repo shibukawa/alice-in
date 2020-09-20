@@ -38,6 +38,10 @@ func (e nonVirtualEnvironment) Environ() map[string]string {
 	return stdEnviron()
 }
 
+func (e nonVirtualEnvironment) Type() EnvType {
+	return NativeEnv
+}
+
 func stdEnviron() map[string]string {
 	envs := os.Environ()
 	result := make(map[string]string, len(envs))
@@ -46,4 +50,9 @@ func stdEnviron() map[string]string {
 		result[f[0]] = f[1]
 	}
 	return result
+}
+
+// NativeEnvironment returns environment to access current environment
+func NativeEnvironment() Environment {
+	return &nonVirtualEnvironment{}
 }

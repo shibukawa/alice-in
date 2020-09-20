@@ -16,3 +16,6 @@
 #
 testdata/detect/detect
 testdata/detect/detect.exe
+
+.venv
+__pycache__
