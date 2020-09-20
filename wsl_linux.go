@@ -142,6 +142,9 @@ func (e wslHostEnvironment) Environ() map[string]string {
 //
 // This function check's parent process and return result
 func DetectEnvType() (EnvType, error) {
+	if !IsInWSL() {
+		return NativeEnv, nil
+	}
 	p, err := process.NewProcess(int32(os.Getppid()))
 	if err != nil {
 		return 0, err
